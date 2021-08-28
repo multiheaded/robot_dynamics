@@ -46,7 +46,7 @@ def Jacobian(mat, syms):
     rows = shape(syms)[0]
     dsyms = diff(syms, t)
     # create a list of temporary symbols
-    tmpq = symbols('tmpq0:%d'%rows)
+    tmpq = symbols('tmpq0:%d'%rows, real=True)
     # make a list of tuples containing temporary replacements, e.g. [(diff(q1,t),tmpq1), ...]
     replacements = list(zip(dsyms,tmpq))
     tmpw = w.subs(replacements)
