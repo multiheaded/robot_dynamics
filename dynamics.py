@@ -1,13 +1,17 @@
 from dataclasses import dataclass
 
+import time
+
 from sympy.abc import t, M
 from sympy.core.facts import TautologyDetected
 from sympy.sets.ordinals import OmegaPower
 from sympy.utilities.decorator import threaded_factory
 from kinematics import Kinematics
-from sympy import Symbol, latex, simplify, diff
+from sympy import Symbol, latex, diff
 from sympy.matrices import Matrix, BlockMatrix
 from transforms import trans, Jacobian
+
+from simplifier import Simplifier
 
 @dataclass
 class Body:
@@ -20,7 +24,7 @@ def Steiner(inertia, mass, displacement):
     Idisp = mass*Matrix([[ a[1]**2+a[2]**2,      -a[0]*a[1],      -a[0]*a[2]],
                          [      -a[0]*a[1], a[0]**2+a[2]**2,      -a[1]*a[2]],
                          [      -a[0]*a[2],      -a[1]*a[2], a[0]**2+a[1]**2]])
-    return simplify(inertia+Idisp)
+    return (inertia+Idisp)
 
 def CylindricBody(mass, length, radius):
     return Body(
@@ -42,36 +46,79 @@ class Dynamics:
     Theta       = None
     CORZEN      = None
     Grav        = None
-    def __init__(self, kinematics, bodies, gravitation):
+    simpl  = None
+    def __init__(self, kinematics, bodies, gravitation, simp = Simplifier("None")):
         self.Kinematics = kinematics
         self.Bodies = bodies
         self.Gravitation = gravitation
+        self.simpl = simp
 
         assert kinematics.countJoints() == len(bodies), 'A body must be supplied for each link in the kinematics object.'
 
+        tic = time.perf_counter()
         Js = self.computeCoMJacobian()
         self.Js = Js
+        toc = time.perf_counter()
+        print(f"  Computing CoM Jacobian done. Took {toc - tic:0.4f} seconds")
+
+        tic = time.perf_counter()
         M  = self.computeMassMatrix()
         self.M = M
+        toc = time.perf_counter()
+        print(f"  Computing mass matrix done. Took {toc - tic:0.4f} seconds")
+
+        tic = time.perf_counter()
         O = self.computeAngularBodyVelocity()
         self.Omega = O
+        toc = time.perf_counter()
+        print(f"  Computing angular velocities done. Took {toc - tic:0.4f} seconds")
 
+        tic = time.perf_counter()
         tauE = self.computeGravitationalForce()
         self.TauE = tauE
+        toc = time.perf_counter()
+        print(f"  Computing gravitational forces done. Took {toc - tic:0.4f} seconds")
 
-        I = simplify( Js.transpose()*M*Js )
-        self.Theta = I
-        CORZEN = simplify( Js.transpose()*( M*diff(Js,t) + O*M*Js) )
-        self.CORZEN = CORZEN
-        Grav = simplify(Js.transpose()*tauE)
-        self.Grav = Grav
+        toc = time.perf_counter()
+        print(f" Computing partial matrices done. Took {toc - tic:0.4f} seconds")
+
+        print(" Computing inertia")
+        tic = time.perf_counter()
+        I = Js.transpose()*M*Js
+        toc = time.perf_counter()
+        print(f"  Computing Theta done. Took {toc - tic:0.4f} seconds")
+        tic = time.perf_counter()
+        self.Theta = self.simpl.execute( I )
+        toc = time.perf_counter()
+        print(f"  Simplifying Theta done. Took {toc - tic:0.4f} seconds")
+
+        print(" Computing coriolis and centrifucal forces")
+        tic = time.perf_counter()
+        CORZEN = Js.transpose()*( M*diff(Js,t) + O*M*Js) 
+        toc = time.perf_counter()
+        print(f"  Computing CORZEN done. Took {toc - tic:0.4f} seconds")
+
+        tic = time.perf_counter()
+        self.CORZEN = self.simpl.execute( CORZEN )
+        toc = time.perf_counter()
+        print(f"  Simplifying CORZEN done. Took {toc - tic:0.4f} seconds")
+
+        print(" Computing gravitational forces")
+        tic = time.perf_counter()
+        Grav = Js.transpose()*tauE
+        toc = time.perf_counter()
+        print(f"  Computing Grav done. Took {toc - tic:0.4f} seconds")
+        tic = time.perf_counter()
+        self.Grav = self.simpl.execute( Grav )
+        toc = time.perf_counter()
+        print(f"  Simplifying Grav done. Took {toc - tic:0.4f} seconds")
 
     
     def computeCoMJacobian(self):
         Jlist = []
         for i in range(self.Kinematics.countJoints()):
             TSi = self.Kinematics.CachedPartialTransforms[i]*trans(self.Bodies[i].CoM[0], self.Bodies[i].CoM[1], self.Bodies[i].CoM[2])
-            Jlist.append(simplify(Jacobian(TSi, self.Kinematics.JointValueSymbols)))
+            Jlist.append(Jacobian(TSi, self.Kinematics.JointValueSymbols))
         return BlockMatrix([[J] for J in Jlist]).as_explicit()
 
     def computeMassMatrix(self):
