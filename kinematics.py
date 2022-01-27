@@ -4,8 +4,6 @@ from sympy.matrices import Matrix, eye
 
 from simplifier import Simplifier
 
-import time
-
 from transforms import DH, Jacobian
 
 def SymbolicJointValues(N):
@@ -22,16 +20,8 @@ class Kinematics:
     self.simpl = simp
     self.JointValueSymbols = jointSyms
     self.DHParameter = DHParms
-    print(" Filling transformation cache")
-    tic = time.perf_counter()
     self.fillTransformationCache()
-    toc = time.perf_counter()
-    print(f" Filling transformation cache done. Took {toc - tic:0.4f} seconds")
-    print(" Computing simplified symbolic Jacobian")
-    tic = time.perf_counter()
     self.SymbolicJacobian = self.computeSymbolicJacobian()
-    toc = time.perf_counter()
-    print(f" Computing simplified symbolic Jacobian done. Took {toc - tic:0.4f} seconds")
 
   def countJoints(self):
     return len(self.DHParameter)
@@ -50,13 +40,7 @@ class Kinematics:
     self.CachedPartialTransforms = [self.simpl.execute(expanded[i]) for i in range(self.countJoints())]
 
   def computeSymbolicJacobian(self):
-    tic = time.perf_counter()
     jac = Jacobian(self.forwardKinematics(), self.JointValueSymbols)
-    toc = time.perf_counter()
-    print(f"  Computing symbolic Jacobian done. Took {toc - tic:0.4f} seconds")
-    tic = time.perf_counter()
     result = self.simpl.execute(jac)
-    toc = time.perf_counter()
-    print(f"  Simplifying symbolic Jacobian done. Took {toc - tic:0.4f} seconds")
 
     return result

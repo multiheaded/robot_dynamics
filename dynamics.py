@@ -1,13 +1,7 @@
 from dataclasses import dataclass
 
-import time
-
-from sympy.abc import t, M
-from sympy.core.facts import TautologyDetected
-from sympy.sets.ordinals import OmegaPower
-from sympy.utilities.decorator import threaded_factory
-from kinematics import Kinematics
-from sympy import Symbol, latex, diff
+from sympy.abc import t
+from sympy import Symbol, diff
 from sympy.matrices import Matrix, BlockMatrix
 from transforms import trans, Jacobian
 
@@ -55,63 +49,25 @@ class Dynamics:
 
         assert kinematics.countJoints() == len(bodies), 'A body must be supplied for each link in the kinematics object.'
 
-        tic = time.perf_counter()
         Js = self.computeCoMJacobian()
         self.Js = Js
-        toc = time.perf_counter()
-        print(f"  Computing CoM Jacobian done. Took {toc - tic:0.4f} seconds")
 
-        tic = time.perf_counter()
         M  = self.computeMassMatrix()
         self.M = M
-        toc = time.perf_counter()
-        print(f"  Computing mass matrix done. Took {toc - tic:0.4f} seconds")
 
-        tic = time.perf_counter()
         O = self.computeAngularBodyVelocity()
         self.Omega = O
-        toc = time.perf_counter()
-        print(f"  Computing angular velocities done. Took {toc - tic:0.4f} seconds")
 
-        tic = time.perf_counter()
         tauE = self.computeGravitationalForce()
         self.TauE = tauE
-        toc = time.perf_counter()
-        print(f"  Computing gravitational forces done. Took {toc - tic:0.4f} seconds")
 
-        toc = time.perf_counter()
-        print(f" Computing partial matrices done. Took {toc - tic:0.4f} seconds")
-
-        print(" Computing inertia")
-        tic = time.perf_counter()
         I = Js.transpose()*M*Js
-        toc = time.perf_counter()
-        print(f"  Computing Theta done. Took {toc - tic:0.4f} seconds")
-        tic = time.perf_counter()
         self.Theta = self.simpl.execute( I )
-        toc = time.perf_counter()
-        print(f"  Simplifying Theta done. Took {toc - tic:0.4f} seconds")
-
-        print(" Computing coriolis and centrifucal forces")
-        tic = time.perf_counter()
         CORZEN = Js.transpose()*( M*diff(Js,t) + O*M*Js) 
-        toc = time.perf_counter()
-        print(f"  Computing CORZEN done. Took {toc - tic:0.4f} seconds")
-
-        tic = time.perf_counter()
         self.CORZEN = self.simpl.execute( CORZEN )
-        toc = time.perf_counter()
-        print(f"  Simplifying CORZEN done. Took {toc - tic:0.4f} seconds")
-
-        print(" Computing gravitational forces")
-        tic = time.perf_counter()
+        
         Grav = Js.transpose()*tauE
-        toc = time.perf_counter()
-        print(f"  Computing Grav done. Took {toc - tic:0.4f} seconds")
-        tic = time.perf_counter()
         self.Grav = self.simpl.execute( Grav )
-        toc = time.perf_counter()
-        print(f"  Simplifying Grav done. Took {toc - tic:0.4f} seconds")
 
     
     def computeCoMJacobian(self):
