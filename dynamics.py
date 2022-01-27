@@ -24,7 +24,7 @@ def CylindricBody(mass, length, radius):
     return Body(
             CoM = Matrix([-length/2, 0, 0]),
             Mass = mass,
-            Inertia = mass/12*Matrix([[3*radius**2+length**2, 0, 0], [0, 3*radius**2+length**2, 0], [0, 0, 6*length**2]])
+            Inertia = mass/12*Matrix([[6*radius**2, 0, 0], [0, 3*radius**2+length**2, 0], [0, 0, 3*radius**2+length**2]])
             #Steiner(mass/12*Matrix([[3*radius**2+length**2, 0, 0], [0, 3*radius**2+length**2, 0], [0, 0, 6*length**2]]), mass, Matrix([-length/2,0,0]))
         )
 
